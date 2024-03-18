@@ -25,12 +25,18 @@ BLECharacteristic bslc = BLECharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
 
-uint8_t  bps = 0;
+uint8_t  bps = 72;
+
 
 void setup()
 {
   Serial.begin(115200);
   while ( !Serial ) delay(10);   // for nrf52840 with native usb
+
+  /* Intializes random number generator */
+  /*Set random number generator*/
+  uint32_t r = millis();
+  randomSeed (r);
 
   Serial.println("Bluefruit52 HRM Example");
   Serial.println("-----------------------\n");
@@ -38,6 +44,7 @@ void setup()
   // Initialise the Bluefruit module
   Serial.println("Initialise the Bluefruit nRF52 module");
   Bluefruit.begin();
+  Bluefruit.setName("ItsyBitsyHrm");    // Check bluefruit.h for supported values
 
   // Set the connect/disconnect callback handlers
   Bluefruit.Periph.setConnectCallback(connect_callback);
@@ -205,7 +212,9 @@ void loop()
   digitalToggle(LED_RED);
   
   if ( Bluefruit.connected() ) {
-    uint8_t hrmdata[2] = { 0b00000110, bps++ };           // Sensor connected, increment BPS value
+    uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
+
+    bps = (uint8_t)(72 + random(-3, 3));
     
     // Note: We use .notify instead of .write!
     // If it is connected but CCCD is not enabled

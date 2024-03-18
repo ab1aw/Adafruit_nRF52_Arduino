@@ -44,8 +44,6 @@ BLECharacteristic bslc = BLECharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
 
-uint8_t  bps = 0;
-
 
 void setup()
 {
@@ -212,27 +210,30 @@ void setupHRM(void)
 
 void loop()
 {
+    digitalToggle(LED_RED);
+
+    // Only toggle once per second.
+    delay(1000);
+}
+
+void sendToClient(uint8_t *hrmdata, uint16_t len)
+{
     static bool firstTime = true;
 
-  digitalToggle(LED_RED);
-  
-  if ( Bluefruit.connected() ) {
-    uint8_t hrmdata[2] = { 0b00000110, bps++ };           // Sensor connected, increment BPS value
-    
-    // Note: We use .notify instead of .write!
-    // If it is connected but CCCD is not enabled
-    // The characteristic's value is still updated although notification is not sent
-    if ( hrmc.notify(hrmdata, sizeof(hrmdata)) ){
-      Serial.print("Heart Rate Measurement updated to: "); Serial.println(bps); 
-      firstTime = true;
-    }else if ( firstTime ) {
-      Serial.println("ERROR: Notify not set in the CCCD or not connected!");
-      firstTime = false;
+    if ( Bluefruit.connected() ) {
+        // Note: We use .notify instead of .write!
+        // If it is connected but CCCD is not enabled
+        // The characteristic's value is still updated although notification is not sent
+        if ( hrmc.notify(hrmdata, len) ){
+            Serial.print("Heart Rate Measurement updated to: ");
+            Serial.println(hrmdata[(len-1)]); 
+            firstTime = true;
+        }
+        else if ( firstTime ) {
+            Serial.println("ERROR: Notify not set in the CCCD or not connected!");
+            firstTime = false;
+        }
     }
-  }
-
-  // Only send update once per second
-  delay(1000);
 }
 
 
@@ -280,11 +281,6 @@ void cccd_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint16_t cccd_valu
         }
     }
 }
-
-
-
-
-
 
 
 
@@ -393,17 +389,19 @@ void hrm_notify_callback(BLEClientCharacteristic* chr, uint8_t* data, uint16_t l
   // Measurement contains of control byte0 and measurement (8 or 16 bit) + optional field
   // if byte0's bit0 is 0 --> measurement is 8 bit, otherwise 16 bit.
 
-  Serial.print("HRM Measurement: ");
-
   if ( data[0] & bit(0) )
   {
     uint16_t value;
     memcpy(&value, data+1, 2);
 
+    Serial.print("HRM Measurement value: ");
     Serial.println(value);
   }
   else
   {
+    Serial.print("HRM Measurement data[1]: ");
     Serial.println(data[1]);
   }
+
+  sendToClient(data, 2);
 }
