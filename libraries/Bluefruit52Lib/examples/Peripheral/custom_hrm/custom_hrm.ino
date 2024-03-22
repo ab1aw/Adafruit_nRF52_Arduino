@@ -137,6 +137,9 @@ void setupHRM(void)
   hrmc.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   hrmc.setFixedLen(2);
   hrmc.setCccdWriteCallback(cccd_callback);  // Optionally capture CCCD updates
+
+  hrmc.setUserDescriptor("HRM User Descriptor: hrmc"); // aka user descriptor
+
   hrmc.begin();
   uint8_t hrmdata[2] = { 0b00000110, 0x40 }; // Set the characteristic to use 8-bit values, with the sensor connected and detected
   hrmc.write(hrmdata, 2);
@@ -158,6 +161,9 @@ void setupHRM(void)
   bslc.setProperties(CHR_PROPS_READ);
   bslc.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   bslc.setFixedLen(1);
+
+  bslc.setUserDescriptor("HRM User Descriptor: bslc"); // aka user descriptor
+
   bslc.begin();
   bslc.write8(2);    // Set the characteristic to 'Wrist' (2)
 }
