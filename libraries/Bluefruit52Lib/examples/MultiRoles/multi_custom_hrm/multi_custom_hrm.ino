@@ -29,6 +29,7 @@ BLECharacteristic bslc2 = BLECharacteristic(UUID16_CHR_BODY_SENSOR_LOCATION);
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
 
+// Initial value: heart rate beats per second.
 uint8_t  bps = 72;
 
 
@@ -47,7 +48,7 @@ void setup()
 
   // Initialise the Bluefruit module
   Serial.println("Initialise the Bluefruit nRF52 module");
-  Bluefruit.begin();
+  Bluefruit.begin(2, 0);
   Bluefruit.setName("MultiCustomHrm");    // Check bluefruit.h for supported values
 
   // Set the connect/disconnect callback handlers
@@ -241,9 +242,9 @@ void loop()
         // If it is connected but CCCD is not enabled
         // The characteristic's value is still updated although notification is not sent
         if ( hrmc1.notify(hrmdata, sizeof(hrmdata)) ){
-        Serial.print("Heart Rate 1 Measurement updated to: "); Serial.println(bps); 
+            Serial.print("Heart Rate 1 Measurement updated to: "); Serial.println(bps); 
         }else{
-        Serial.println("ERROR: Notify not set in the CCCD or not connected!");
+            Serial.println("ERROR: Notify not set in the CCCD or not connected!");
         }
     }
     {
@@ -255,9 +256,9 @@ void loop()
         // If it is connected but CCCD is not enabled
         // The characteristic's value is still updated although notification is not sent
         if ( hrmc2.notify(hrmdata, sizeof(hrmdata)) ){
-        Serial.print("Heart Rate 2 Measurement updated to: "); Serial.println(bps); 
+            Serial.print("Heart Rate 2 Measurement updated to: "); Serial.println(bps); 
         }else{
-        Serial.println("ERROR: Notify not set in the CCCD or not connected!");
+            Serial.println("ERROR: Notify not set in the CCCD or not connected!");
         }
     }
   }
