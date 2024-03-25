@@ -128,7 +128,6 @@ void scan_callback (ble_gap_evt_adv_report_t *report)
     // Scan callback only invoked for device with hrm service advertised
     // Connect to device with HRM service in advertising
     Bluefruit.Central.connect (report);
-
     Serial.println ("scan_callback");
 }
 
@@ -246,12 +245,10 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
     // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.heart_rate_measurement.xml
     // Measurement contains of control byte0 and measurement (8 or 16 bit) + optional field
     // if byte0's bit0 is 0 --> measurement is 8 bit, otherwise 16 bit.
-
-    int id = findConnHandle( chr->connHandle() );
+    int id = findConnHandle ( chr->connHandle() );
     Serial.print (id);
     Serial.print (" : ");
     Serial.print (prphs[id].name);
-
     Serial.print (" : HRM Measurement: ");
 
     if ( data[0] & bit (0) ) {
@@ -265,7 +262,7 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
     }
 
     Serial.print (" : BSLC : ");
-    Serial.println (prphs[id].bslc->read8());
+    Serial.println (prphs[id].bslc->read8() );
 }
 
 /**
