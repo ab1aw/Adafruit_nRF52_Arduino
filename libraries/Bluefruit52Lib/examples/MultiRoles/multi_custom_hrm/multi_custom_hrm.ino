@@ -69,8 +69,8 @@ void setup()
   // Setup the Heart Rate Monitor service using
   // BLEService and BLECharacteristic classes
   Serial.println("Configuring the Heart Rate Monitor Service");
-  setupHRM(hrmc1, bslc1, "Unit 1");
-  setupHRM(hrmc2, bslc2, "Unit 2");
+  setupHRM(hrmc1, bslc1, (char *)"Unit 1");
+  setupHRM(hrmc2, bslc2, (char *)"Unit 2");
 
   // Setup the advertising packet(s)
   Serial.println("Setting up the advertising payload(s)");
@@ -202,18 +202,26 @@ void disconnect_callback(uint16_t conn_handle, uint8_t reason)
 
 void cccd_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint16_t cccd_value)
 {
+    uint16_t _uuid;
+
     // Display the raw request packet
-    Serial.print("CCCD Updated: ");
+    Serial.print("CCCD Updated: connection handle: ");
     //Serial.printBuffer(request->data, request->len);
-    Serial.println(cccd_value);
+    Serial.print(conn_hdl);
+    Serial.print(", CCCD value: ");
+    Serial.print(cccd_value);
+    Serial.print(", UUID value: ");
+
+    (void)chr->uuid.get(&_uuid);
+    Serial.println(_uuid);
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
     if (chr->uuid == hrmc1.uuid) {
         if (chr->notifyEnabled(conn_hdl)) {
-            Serial.println("Heart Rate Measurement 'Notify' enabled");
+            Serial.println("Heart Rate Measurement #1 'Notify' enabled");
         } else {
-            Serial.println("Heart Rate Measurement 'Notify' disabled");
+            Serial.println("Heart Rate Measurement #1 'Notify' disabled");
         }
     }
 
@@ -221,9 +229,9 @@ void cccd_callback(uint16_t conn_hdl, BLECharacteristic* chr, uint16_t cccd_valu
     // this handler is used for multiple CCCD records.
     if (chr->uuid == hrmc2.uuid) {
         if (chr->notifyEnabled(conn_hdl)) {
-            Serial.println("Heart Rate Measurement 'Notify' enabled");
+            Serial.println("Heart Rate Measurement #2 'Notify' enabled");
         } else {
-            Serial.println("Heart Rate Measurement 'Notify' disabled");
+            Serial.println("Heart Rate Measurement #2 'Notify' disabled");
         }
     }
 }
@@ -244,7 +252,7 @@ void loop()
         if ( hrmc1.notify(hrmdata, sizeof(hrmdata)) ){
             Serial.print("Heart Rate 1 Measurement updated to: "); Serial.println(bps); 
         }else{
-            Serial.println("ERROR: Notify not set in the CCCD or not connected!");
+            Serial.println("ERROR: HRM 1 notify not set in the CCCD or not connected!");
         }
     }
     {
@@ -258,7 +266,7 @@ void loop()
         if ( hrmc2.notify(hrmdata, sizeof(hrmdata)) ){
             Serial.print("Heart Rate 2 Measurement updated to: "); Serial.println(bps); 
         }else{
-            Serial.println("ERROR: Notify not set in the CCCD or not connected!");
+            Serial.println("ERROR: HRM 2 notify not set in the CCCD or not connected!");
         }
     }
   }

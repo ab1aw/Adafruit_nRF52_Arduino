@@ -128,6 +128,8 @@ void scan_callback (ble_gap_evt_adv_report_t *report)
     // Scan callback only invoked for device with hrm service advertised
     // Connect to device with HRM service in advertising
     Bluefruit.Central.connect (report);
+
+    Serial.println ("scan_callback");
 }
 
 /**
@@ -255,12 +257,15 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
     if ( data[0] & bit (0) ) {
         uint16_t value;
         memcpy (&value, data + 1, 2);
-        Serial.println (value);
+        Serial.print (value);
     }
 
     else {
-        Serial.println (data[1]);
+        Serial.print (data[1]);
     }
+
+    Serial.print (" : BSLC : ");
+    Serial.println (prphs[id].bslc->read8());
 }
 
 /**
