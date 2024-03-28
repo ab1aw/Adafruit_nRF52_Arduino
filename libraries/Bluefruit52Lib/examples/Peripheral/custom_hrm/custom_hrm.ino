@@ -65,8 +65,10 @@ void setup()
     // Setup the advertising packet(s)
     Serial.println ("Setting up the advertising payload(s)");
     startAdv();
-    Serial.println ("Ready Player One!!!");
-    Serial.println ("\nAdvertising");
+
+    const char *body_str[] = { "Other", "Chest", "Wrist", "Finger", "Hand", "Ear Lobe", "Foot" };
+
+    Serial.printf ("Advertising HRM body sensor location: %s.\n", body_str[bslc.read8()]);
 }
 
 void startAdv (void)
@@ -145,12 +147,23 @@ void setupHRM (void)
     //      5     = Ear Lobe
     //      6     = Foot
     //      7:255 = Reserved
+
+    // Randomly choose one of the possible locations.
+    // Loop on the random number generator for a bit to "prime the pump."
+    int count_down = 10;
+    while ( count_down-- ) {
+        (void)random (1, 7);
+    }
+    uint8_t location = (uint8_t) (random (1, 7) );  // Results in range [1..6].
+
     bslc.setProperties (CHR_PROPS_READ);
     bslc.setPermission (SECMODE_OPEN, SECMODE_NO_ACCESS);
     bslc.setFixedLen (1);
     bslc.setUserDescriptor ("HRM User Descriptor: bslc"); // aka user descriptor
     bslc.begin();
-    bslc.write8 (2);   // Set the characteristic to 'Wrist' (2)
+
+    // Set the characteristic to one of the possible body sensor location values.
+    bslc.write8 (location);
 }
 
 void connect_callback (uint16_t conn_handle)
@@ -203,8 +216,12 @@ void loop()
     digitalToggle (LED_RED);
 
     if ( Bluefruit.connected() ) {
-        uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-        bps = (uint8_t) (72 + random (-3, 3) );
+        // Sensor connected, modify BPS value based on body sensor location.
+        // BPS value is modified in order to generate different value ranges
+        // based on the sensot location. This allow us to process different
+        // ranges on the proxy peripheral aggregator.
+        uint8_t hrmdata[2] = { 0b00000110, bps };
+        bps = (uint8_t) (68 + bslc.read8() +  random (-3, 4) );  // Results in range of +/-3.
 
         // Note: We use .notify instead of .write!
         // If it is connected but CCCD is not enabled
