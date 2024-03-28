@@ -48,6 +48,11 @@ BLECharacteristic bslc = BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
 
+/* *** Sample filtering *** */
+double average_bps = 0.0;
+double moving_average_factor = 10.0;
+double scalar1;
+double scalar2;
 
 
 /* Peripheral info array (one per peripheral device)
@@ -73,6 +78,11 @@ void setup()
     while ( !Serial ) {
         delay (10);    // for nrf52840 with native usb
     }
+
+    /* *** Sample filtering *** */
+    scalar1 = 1.0 / moving_average_factor;
+    scalar2 = 1.0 - scalar1;
+    /* *** Sample filtering *** */
 
     Serial.println ("Peripheral Aggregator");
     Serial.println ("--------------------------------------\n");
@@ -317,6 +327,8 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
     int id = findConnHandle ( chr->connHandle() );
 
     uint16_t value;
+    uint8_t averaged_data[3];
+
     if ( data[0] & bit (0) ) {
         memcpy (&value, data + 1, 2);
     }
@@ -325,14 +337,49 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
         value = (uint16_t)(data[1]);
     }
 
-    Serial.printf ("%d : %s :  HRM Measurement: %d : BSLC : %d : len : %d\n",
+    // Convert heart rate BPS value to floating point in order to calculate a
+    // moving average value among all the sensors.
+    {
+        static bool first_sample = true;
+
+        if ( first_sample == true ) {
+            // everybody forgets the initial condition *sigh*
+            average_bps = (double)value;
+            first_sample = false;
+        }
+        else {
+            average_bps = ((double)value * scalar1) + (average_bps * scalar2);
+        }
+
+    }
+
+    // Convert the calculated moving average BPS value back into a format to
+    // send as a notification.
+    {
+        value = (uint16_t)average_bps;
+
+        averaged_data[0] = data[0];
+
+        if ( data[0] & bit (0) ) {
+            memcpy (averaged_data + 1, &value, 2);
+        }
+        else {
+            averaged_data[1] = (uint8_t)value;
+            averaged_data[2] = 0;
+        }
+    }
+    
+    Serial.printf ("%d : %s :  HRM Measurement: %d/%s : BSLC : %d : len : %d\n",
                   id,
                   prphs[id].name,
-                  value,
+                  value, String(average_bps).c_str(),
                   prphs[id].bslc->read8(),
                   len);
 
-    sendToClient (data, 2);
+    sendToClient (averaged_data, 2);
+
+    // Cache the most recent body sensor location.
+    bslc.write8(prphs[id].bslc->read8());
 }
 
 /**
