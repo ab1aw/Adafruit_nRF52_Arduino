@@ -286,15 +286,25 @@ bool pairing_passkey_callback(uint16_t conn_handle, uint8_t const passkey[6], bo
     if (justReleased & ARCADA_BUTTONMASK_LEFT) return false;
 
 #else
-    // wait until either button is pressed (30 seconds timeout)
-    while( digitalRead(BUTTON_YES) && digitalRead(BUTTON_NO) )
+
+    // Wait until either 'Y' or 'N' key is pressed (30 seconds timeout).
+    while( millis() < start_time + 30000 )
     {
-      if ( millis() > start_time + 30000 ) break;
+        char receivedChar = Serial.read();
+
+      // user press YES
+      if (receivedChar == 'Y')
+      {
+          return true;
+      }
+
+      // user press NO
+      if (receivedChar == 'N')
+      {
+        return false;
+      }
     }
 
-    if ( 0 == digitalRead(BUTTON_YES) ) return true;
-
-    if ( 0 == digitalRead(BUTTON_NO) ) return false;
 #endif
 
     return false;
