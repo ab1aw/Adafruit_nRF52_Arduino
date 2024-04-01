@@ -210,24 +210,26 @@ bool pairing_passkey_callback(uint16_t conn_handle, uint8_t const passkey[6], bo
   {
     bool accept_pairing = false;
 
-    Serial.println("Do you want to pair");
-    Serial.printf("Press button <%u> to Decline, button <%u> to Accept\n", BUTTON_YES, BUTTON_NO);
+    Serial.println("Do you want to pair?");
+    Serial.println("Press 'N' key to decline or 'Y' key to accept.");
 
     // timeout for pressing button
     uint32_t start_time = millis();
 
-    // wait until either button is pressed (30 seconds timeout)
+    // Wait until either 'Y' or 'N' key is pressed (30 seconds timeout).
     while( millis() < start_time + 30000 )
     {
+        char receivedChar = Serial.read();
+
       // user press YES
-      if (digitalRead(BUTTON_YES) == button_active_state)
+      if (receivedChar == 'Y')
       {
         accept_pairing = true;
         break;
       }
 
       // user press NO
-      if (digitalRead(BUTTON_NO) == button_active_state)
+      if (receivedChar == 'N')
       {
         accept_pairing = false;
         break;
