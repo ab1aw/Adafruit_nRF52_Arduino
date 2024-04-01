@@ -67,6 +67,9 @@ void setup()
 {
   Serial.begin(115200);
 
+  // Blocking wait for connection when debug mode is enabled via IDE
+  while ( !Serial ) yield();
+
   Serial.println("Bluefruit52 Central Pairing Example");
   Serial.println("-----------------------------------\n");
   
