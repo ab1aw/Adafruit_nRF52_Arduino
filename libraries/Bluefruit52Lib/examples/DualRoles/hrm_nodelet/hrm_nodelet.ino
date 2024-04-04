@@ -120,7 +120,7 @@ void setup()
      */
     Bluefruit.Scanner.setRxCallback (scan_callback);
     Bluefruit.Scanner.restartOnDisconnect (true);
-    Bluefruit.Scanner.setInterval (160, 80); // in unit of 0.625 ms
+    Bluefruit.Scanner.setInterval (160, 80); // in unit of 0.625 ms; Scan every 100 mSec for 50 mSec.
     Bluefruit.Scanner.filterUuid (hrms.uuid);
     Bluefruit.Scanner.useActiveScan (false);
 
@@ -318,6 +318,12 @@ void upstream_connect_callback (uint16_t conn_handle)
     // This function should be called in connect callback
     // Input argument is value difference (to current rssi) that triggers callback
     connection->monitorRssi(10);
+
+#if 0
+    // Keep advertising if not reaching max
+    Serial.println ("Keep advertising");
+    Bluefruit.Advertising.start (0);
+#endif
 }
 
 
@@ -332,17 +338,19 @@ void upstream_disconnect_callback (uint16_t conn_handle, uint8_t reason)
     (void) reason;
     Serial.print ("Upstream disconnected, reason = 0x");
     Serial.println (reason, HEX);
-    Serial.println ("Advertising!");
-}
+
+    Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
+    Serial.println ("Resume advertising....");}
 
 
 void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_value)
 {
     // Display the raw request packet
-    Serial.print ("CCCD Updated: ");
-    //Serial.printBuffer(request->data, request->len);
-    Serial.print (cccd_value);
-    Serial.println ("");
+    Serial.printf ("cccd_callback() to %s: chr->uuid %s, hrmc.uuid %s, cccd_value %u\n",
+                    getPeerNameFromHandle (conn_hdl),
+                    chr->uuid.toString().c_str(),
+                    hrmc.uuid.toString().c_str(),
+                    cccd_value);
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
@@ -364,6 +372,12 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
  */
 void scan_callback (ble_gap_evt_adv_report_t *report)
 {
+    Serial.printf("scan_callback(): Tx Power %d, RSSI %d\n", report->tx_power, report->rssi);
+
+    // MAC is in little endian --> print reverse
+    Serial.printBufferReverse (report->peer_addr.addr, 6, ':');
+    Serial.print ("\n");
+
     // Since we configure the scanner with filterUuid()
     // Scan callback only invoked for device with hrm service advertised
     // Connect to device with HRM service in advertising
@@ -433,8 +447,11 @@ void downstream_connect_callback (uint16_t conn_handle)
         Serial.println ("Couldn't enable notify for HRM Measurement. Increase DEBUG LEVEL for troubleshooting");
     }
 
-    Serial.println ("Continue scanning for more downstream nodelets.");
-    Bluefruit.Scanner.start (0);
+//    Serial.println ("Continue scanning for more downstream nodelets.");
+//    Bluefruit.Scanner.start (0);
+
+    Serial.println ("Stop scanning.");
+    Bluefruit.Scanner.stop ();
 
     // Start monitoring rssi of this connection
     // This function should be called in connect callback
@@ -498,7 +515,11 @@ char *getPeerNameFromHandle (uint16_t conn_handle)
     // monitorRssi() must be called previously (in connect callback)
     int8_t rssi = connection->getRssi();
     
-    Serial.printf("%s RSSI = %d\n", peer_name, rssi);
+    Serial.printf("\n%s RSSI = %d\n", peer_name, rssi);
+
+    // MAC is in little endian --> print reverse
+    Serial.printBufferReverse (connection->getPeerAddr().addr, 6, ':');
+    Serial.print ("\n");
 
     return peer_name;
 }
