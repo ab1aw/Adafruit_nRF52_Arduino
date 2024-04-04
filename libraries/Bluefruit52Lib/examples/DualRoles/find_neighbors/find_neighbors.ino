@@ -107,7 +107,7 @@ void setup()
      */
     Bluefruit.Scanner.setRxCallback (scan_callback);
     Bluefruit.Scanner.restartOnDisconnect (true);
-    Bluefruit.Scanner.setInterval (160, 80); // in unit of 0.625 ms
+    Bluefruit.Scanner.setInterval (1600, 160); // in unit of 0.625 ms; Scan every 1 seconds for 100 mSec.
     Bluefruit.Scanner.filterUuid (hrms.uuid);
     Bluefruit.Scanner.useActiveScan (true);
     Bluefruit.Scanner.start (0);                  // // 0 = Don't stop scanning after n seconds
