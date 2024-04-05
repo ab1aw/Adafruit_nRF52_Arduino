@@ -21,29 +21,21 @@
 
 #include <bluefruit.h>
 
-// Struct containing peripheral info
+#define MAX_PRPH_CONNECTION   4
+static uint8_t connection_count = 0;
+
+// Struct containing peripheral (downstream node) info
 typedef struct {
     char name[16 + 1];
     char body_sensor_location[16 + 1];
 
     uint16_t conn_handle;
 
-    // Each prph need its own BLE HRM client service
+    // Each prph needs its own BLE HRM client service.
     BLEClientService        *hrms;
     BLEClientCharacteristic *hrmc;
     BLEClientCharacteristic *bslc;
 } prph_info_t;
-
-
-/* HRM Service Definitions
- * Heart Rate Monitor Service:  0x180D
- * Heart Rate Measurement Char: 0x2A37 (Mandatory)
- * Body Sensor Location Char:   0x2A38 (Optional)
- */
-
-BLEClientService        hrmsClient (UUID16_SVC_HEART_RATE);
-BLEClientCharacteristic hrmcClient (UUID16_CHR_HEART_RATE_MEASUREMENT);
-BLEClientCharacteristic bslcClient (UUID16_CHR_BODY_SENSOR_LOCATION);
 
 
 /* HRM Service Definitions
@@ -57,6 +49,8 @@ BLECharacteristic bslc = BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
 
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
+
+uint16_t connectionHandles[MAX_PRPH_CONNECTION];
 
 
 /* Peripheral info array (one per peripheral device)
@@ -86,9 +80,9 @@ void setup()
     Serial.println ("STP Dual-Role BLE Mesh Network");
     Serial.println ("-------------------------------------\n");
 
-    // Initialize Bluefruit with maximum connections as Peripheral = 1, Central = 6
+    // Initialize Bluefruit with maximum connections as Peripheral = 4, Central = 3
     // SRAM usage required by SoftDevice will increase with number of connections
-    Bluefruit.begin (1, 6);
+    Bluefruit.begin (MAX_PRPH_CONNECTION, 3);
     Bluefruit.setTxPower (4);   // Check bluefruit.h for supported values
     Bluefruit.setName ("STP-Dual-Role");   // Check bluefruit.h for supported values
 
@@ -122,6 +116,14 @@ void setup()
     // Callbacks for Central
     Bluefruit.Central.setDisconnectCallback (cent_disconnect_callback);
     Bluefruit.Central.setConnectCallback (cent_connect_callback);
+
+    // Set up Rssi changed callback
+    Bluefruit.setRssiCallback(rssi_changed_callback);
+
+    // Manage the central (upstream client) connections.
+    for (int i = 0; i < MAX_PRPH_CONNECTION; i++) {
+        connectionHandles[i] = (sizeof (uint16_t) - 1);
+    }
 
     configureScanning();
 
@@ -311,13 +313,46 @@ void sendToClient (uint8_t *hrmdata, uint16_t len)
 
 void periph_connect_callback (uint16_t conn_handle)
 {
+    uint16_t previous_connection_count = connection_count;
+
+    // Manage the client handle connection.
+    for (int i = 0; i < MAX_PRPH_CONNECTION; i++) {
+        if ( connectionHandles[i] == (sizeof (uint16_t) - 1) ) {
+            connectionHandles[i] = conn_handle;
+            connection_count++;
+            break;
+        }
+    }
+
+    if ( previous_connection_count == connection_count ) {
+        // No room at the inn!
+        Serial.print ("ERROR! Too many connections already!");
+        return;
+    }
+
     // Get the reference to current connection
     BLEConnection *connection = Bluefruit.Connection (conn_handle);
+
     char central_name[32] = { 0 };
     connection->getPeerName (central_name, sizeof (central_name) );
 
-    Serial.print ("Connected to ");
+    // Start monitoring rssi of this connection
+    // This function should be called in connect callback
+    // Input argument is value difference (to current rssi) that triggers callback
+    connection->monitorRssi(10);
+
+    Serial.printf ("Connected to: %s");
     Serial.println (central_name);
+    Serial.print ("Connection handle: ");
+    Serial.println (conn_handle);
+    Serial.print ("Connection count: ");
+    Serial.println (connection_count);
+
+    // Stop advertising after t seconds or after N number of upstream connections created.
+    if (connection_count < MAX_PRPH_CONNECTION) {
+        Serial.println ("Keep advertising");
+        Bluefruit.Advertising.start (0);
+    }
 }
 
 
@@ -330,9 +365,23 @@ void periph_disconnect_callback (uint16_t conn_handle, uint8_t reason)
 {
     (void) conn_handle;
     (void) reason;
+    uint16_t previous_connection_count = connection_count;
     Serial.print ("Disconnected, reason = 0x");
     Serial.println (reason, HEX);
     Serial.println ("Advertising!");
+
+    // Manage the client handle connection.
+    for (int i = 0; i < MAX_PRPH_CONNECTION; i++) {
+        if ( connectionHandles[i] == conn_handle ) {
+            connectionHandles[i] = (sizeof (uint16_t) - 1);
+            connection_count--;
+            break;
+        }
+    }
+
+    if ( previous_connection_count == connection_count ) {
+        Serial.print ("ERROR! No connection handle was found.");
+    }
 }
 
 
@@ -384,7 +433,7 @@ void scan_callback (ble_gap_evt_adv_report_t *report)
 void cent_connect_callback (uint16_t conn_handle)
 {
     // Find an available ID to use
-    int id  = findConnHandle (BLE_CONN_HANDLE_INVALID);
+    int id  = findDownstreamConnectionHandle (BLE_CONN_HANDLE_INVALID);
 
     // Eeek: Exceeded the number of connections !!!
     if ( id < 0 ) {
@@ -471,7 +520,7 @@ void cent_disconnect_callback (uint16_t conn_handle, uint8_t reason)
     (void) conn_handle;
     (void) reason;
     // Mark the ID as invalid
-    int id  = findConnHandle (conn_handle);
+    int id  = findDownstreamConnectionHandle (conn_handle);
 
     if ( id < 0 ) {
         Serial.println ("ERROR! CONNECTION NOT FOUND!");
@@ -520,7 +569,7 @@ void hrm_notify_callback (BLEClientCharacteristic *chr, uint8_t *data, uint16_t 
  * @param conn_handle Connection handle
  * @return array index if found, otherwise -1
  */
-int findConnHandle (uint16_t conn_handle)
+int findDownstreamConnectionHandle (uint16_t conn_handle)
 {
     for (int id = 0; id < BLE_MAX_CONNECTION; id++) {
         if (conn_handle == prphs[id].conn_handle) {
@@ -530,3 +579,71 @@ int findConnHandle (uint16_t conn_handle)
 
     return -1;
 }
+
+
+/**
+ * Examine each upstream connection.
+ * Rank the connections according to RSSI and hops to root.
+ * Terminate all except highest ranked connection.
+ */
+void pruneUpstreamConnections(void)
+{
+    uint16_t best_conn_handle;
+    int8_t best_rssi = -127;
+
+    for (int i = 0; i < MAX_PRPH_CONNECTION; i++) {
+        if ( connectionHandles[i] == (sizeof (uint16_t) - 1) ) {
+            // Skip invalid (unused) entries.
+            continue;
+        }
+
+        uint16_t conn_handle = connectionHandles[i];
+        BLEConnection *connection = Bluefruit.Connection (conn_handle);
+        int8_t rssi = connection->getRssi();
+        
+        if ( rssi > best_rssi ) {
+            best_rssi = rssi;
+            best_conn_handle = conn_handle;
+            Serial.printf("Best connection %d has RSSI %d.\n", best_conn_handle, best_rssi);
+        }
+        else {
+            // Delete this upstream connection.
+            // Should result in the periph_disconnect_callback()
+            // being invoked, which then cleans-up the connection handle list.
+            Serial.printf("Disconnecting connection %d w/ RSSI %d.\n", conn_handle, rssi);
+            Bluefruit.disconnect (conn_handle);
+        }
+    }
+}
+
+
+void rssi_changed_callback(uint16_t conn_hdl, int8_t rssi)
+{
+  (void) conn_hdl;
+  Serial.printf("Connection %d RSSI is now %d.", conn_hdl, rssi);
+  Serial.println();
+}
+
+#if 0
+char *getPeerNameFromHandle (uint16_t conn_handle)
+{
+    static char peer_name[32] = { 0 };
+
+    // Get the reference to this handle's connection.
+    BLEConnection *connection = Bluefruit.Connection (conn_handle);
+    connection->getPeerName (peer_name, sizeof (peer_name) );
+
+    return peer_name;
+}
+
+
+int8_t getRssiFromHandle (uint16_t conn_handle)
+{
+    // Get the reference to this handle's connection.
+    BLEConnection *connection = Bluefruit.Connection (conn_handle);
+
+    // get the RSSI value of this connection
+    // monitorRssi() must be called previously (in connect callback)
+    return connection->getRssi();
+}
+#endif
