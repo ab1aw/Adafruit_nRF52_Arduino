@@ -297,15 +297,24 @@ void sendToClient (uint8_t *hrmdata, uint16_t len)
         // Note: We use .notify instead of .write!
         // If it is connected but CCCD is not enabled
         // The characteristic's value is still updated although notification is not sent
-        if ( hrmc.notify (hrmdata, len) ) {
-            Serial.print ("Heart Rate Measurement updated to: ");
-            Serial.println (hrmdata[ (len - 1)]);
-            firstTime = true;
-        }
 
-        else if ( firstTime ) {
-            Serial.println ("ERROR: Notify not set in the CCCD or not connected!");
-            firstTime = false;
+        // Manage the client handle connection.
+        for (int i = 0; i < MAX_PRPH_CONNECTION; i++) {
+            if ( connectionHandles[i] != (sizeof (uint16_t) - 1) ) {
+                // Note: We use .notify instead of .write!
+                // If it is connected but CCCD is not enabled
+                // The characteristic's value is still updated although notification is not sent
+                if ( hrmc.notify (connectionHandles[i], hrmdata, sizeof (hrmdata) ) ) {
+                    Serial.print ("Heart Rate Measurement updated to: ");
+                    Serial.println (hrmdata[ (len - 1)]);
+                }
+
+                else {
+                    Serial.println ("ERROR: Notify not set in the CCCD or not connected!");
+                }
+            }
+
+            yield();
         }
     }
 }
