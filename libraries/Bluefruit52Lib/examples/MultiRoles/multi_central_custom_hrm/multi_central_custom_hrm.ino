@@ -95,9 +95,11 @@ void setup()
 
     // Increase Blink rate to different from PrPh advertising mode
     Bluefruit.setConnLedInterval (250);
+
     // Callbacks for Central
     Bluefruit.Central.setDisconnectCallback (disconnect_callback);
     Bluefruit.Central.setConnectCallback (connect_callback);
+
     /* Start Central Scanning
      * - Enable auto scan if disconnected
      * - Interval = 100 ms, window = 80 ms
@@ -165,12 +167,17 @@ void connect_callback (uint16_t conn_handle)
     Serial.println ("Found it");
     Serial.print ("Discovering Measurement characteristic ... ");
 
+#if 0
     if ( ! peer->hrmc->discover() ) {
         // Measurement chr is mandatory, if it is not found (valid), then disconnect
         Serial.println ("ERROR! not found !!!");
         Serial.println ("ERROR! Measurement characteristic is mandatory but not found.");
         Bluefruit.disconnect (conn_handle);
         return;
+    }
+#endif
+    while ( peer->hrmc->discover() ) {
+        Serial.println ("FOUND ANOTHER ....");
     }
 
     Serial.println ("Found it");
