@@ -41,12 +41,6 @@ void setup()
         delay (10);    // for nrf52840 with native usb
     }
 
-    hrmc1 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-    bslc1 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-
-    hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-    bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-
     /* Intializes random number generator */
     /*Set random number generator*/
     uint32_t r = millis();
@@ -69,11 +63,22 @@ void setup()
     Serial.println ("Configuring the Battery Service");
     blebas.begin();
     blebas.write (100);
+
+    Bluefruit.configServiceChanged(true);
+
     // Setup the Heart Rate Monitor service using
     // BLEService and BLECharacteristic classes
-    Serial.println ("Configuring the Heart Rate Monitor Service");
+    Serial.println ("Configuring the Heart Rate Monitor Service #1");
+    hrmc1 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+    bslc1 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
     setupHRM (hrmc1, bslc1, (char *) "Unit 1");
+#if 0
+    Serial.println ("Configuring the Heart Rate Monitor Service #2");
+    hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+    bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
     setupHRM (hrmc2, bslc2, (char *) "Unit 2");
+#endif
+
     // Setup the advertising packet(s)
     Serial.println ("Setting up the advertising payload(s)");
     startAdv();
@@ -205,13 +210,17 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
     Serial.print (hrmc1->getCccd(conn_hdl));
     Serial.print (" : ");
     Serial.print (hrmc2->getCccd(conn_hdl));
+    Serial.print (" : ");
+    Serial.print (((chr == hrmc1) ? "TRUE" : "FALSE"));
+    Serial.print (" : ");
+    Serial.print (((chr == hrmc2) ? "TRUE" : "FALSE"));
     Serial.print (", UUID value: ");
     (void) chr->uuid.get (&_uuid);
     Serial.println (_uuid);
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if ( (chr->uuid == hrmc1->uuid) && (cccd_value == hrmc1->getCccd(conn_hdl)) ) {
+    if ( (hrmc1 != NULL) && (chr->uuid == hrmc1->uuid) && (cccd_value == hrmc1->getCccd(conn_hdl)) ) {
         if (hrmc1->notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #1 'Notify' enabled");
         }
@@ -223,7 +232,7 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if ( (chr->uuid == hrmc2->uuid) && (cccd_value == hrmc2->getCccd(conn_hdl)) ) {
+    if ( (hrmc2 != NULL) && (chr->uuid == hrmc2->uuid) && (cccd_value == hrmc2->getCccd(conn_hdl)) ) {
         if (hrmc2->notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #2 'Notify' enabled");
         }
@@ -242,7 +251,7 @@ void loop()
     digitalToggle (LED_RED);
 
     if ( Bluefruit.connected() ) {
-        {
+        if ( hrmc1 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
             bps = (uint8_t) (72 + random (-3, 3) );
 
@@ -253,6 +262,19 @@ void loop()
                 Serial.print ("Heart Rate 1 Measurement updated to: ");
                 Serial.println (bps);
                 hrm1_not_connected_announced = false;
+
+#if 1
+                if ( hrmc2 == NULL ) {
+                    Serial.println ("Configuring the Heart Rate Monitor Service #2");
+                    hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+                    bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+                    setupHRM (hrmc2, bslc2, (char *) "Unit 2");
+                    // Don't need this to make new service characteristic discoverable by central device.
+                    //   Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
+                }
+#endif
+
+
             }
 
             else if ( hrm1_not_connected_announced == false ) {
@@ -260,9 +282,10 @@ void loop()
                 hrm1_not_connected_announced = true;
             }
         }
-        {
+
+        if ( hrmc2 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-            bps = (uint8_t) (72 + random (-3, 3) );
+            bps = (uint8_t) (62 + random (-3, 3) );
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
