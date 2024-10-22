@@ -186,20 +186,27 @@ void disconnect_callback (uint16_t conn_handle, uint8_t reason)
 void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_value)
 {
     uint16_t _uuid;
+
     // Display the raw request packet
     Serial.print ("CCCD Updated: connection handle: ");
     //Serial.printBuffer(request->data, request->len);
     Serial.print (conn_hdl);
-    Serial.print (", CCCD value: ");
+    Serial.print (", CCCD values: ");
     Serial.print (cccd_value);
+    Serial.print (" : ");
+    Serial.print (chr->getCccd(conn_hdl));
+    Serial.print (" : ");
+    Serial.print (hrmc1.getCccd(conn_hdl));
+    Serial.print (" : ");
+    Serial.print (hrmc2.getCccd(conn_hdl));
     Serial.print (", UUID value: ");
     (void) chr->uuid.get (&_uuid);
     Serial.println (_uuid);
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if (chr->uuid == hrmc1.uuid) {
-        if (chr->notifyEnabled (conn_hdl) ) {
+    if ( (chr->uuid == hrmc1.uuid) && (cccd_value == hrmc1.getCccd(conn_hdl)) ) {
+        if (hrmc1.notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #1 'Notify' enabled");
         }
 
@@ -210,8 +217,8 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if (chr->uuid == hrmc2.uuid) {
-        if (chr->notifyEnabled (conn_hdl) ) {
+    if ( (chr->uuid == hrmc2.uuid) && (cccd_value == hrmc2.getCccd(conn_hdl)) ) {
+        if (hrmc2.notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #2 'Notify' enabled");
         }
 
@@ -223,6 +230,9 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
 
 void loop()
 {
+    static bool hrm1_not_connected_announced = false;
+    static bool hrm2_not_connected_announced = false;
+
     digitalToggle (LED_RED);
 
     if ( Bluefruit.connected() ) {
@@ -236,10 +246,12 @@ void loop()
             if ( hrmc1.notify (hrmdata, sizeof (hrmdata) ) ) {
                 Serial.print ("Heart Rate 1 Measurement updated to: ");
                 Serial.println (bps);
+                hrm1_not_connected_announced = false;
             }
 
-            else {
+            else if ( hrm1_not_connected_announced == false ) {
                 Serial.println ("ERROR: HRM 1 notify not set in the CCCD or not connected!");
+                hrm1_not_connected_announced = true;
             }
         }
         {
@@ -252,10 +264,12 @@ void loop()
             if ( hrmc2.notify (hrmdata, sizeof (hrmdata) ) ) {
                 Serial.print ("Heart Rate 2 Measurement updated to: ");
                 Serial.println (bps);
+                hrm2_not_connected_announced = false;
             }
 
-            else {
+            else if ( hrm2_not_connected_announced == false ) {
                 Serial.println ("ERROR: HRM 2 notify not set in the CCCD or not connected!");
+                hrm2_not_connected_announced = true;
             }
         }
     }
