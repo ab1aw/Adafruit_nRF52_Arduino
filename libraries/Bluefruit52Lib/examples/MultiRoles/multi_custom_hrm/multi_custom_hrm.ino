@@ -20,11 +20,11 @@
  */
 BLEService        hrms = BLEService (UUID16_SVC_HEART_RATE);
 
-BLECharacteristic hrmc1 = BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-BLECharacteristic bslc1 = BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+BLECharacteristic *hrmc1 = NULL;
+BLECharacteristic *bslc1 = NULL;
 
-BLECharacteristic hrmc2 = BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-BLECharacteristic bslc2 = BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+BLECharacteristic *hrmc2 = NULL;
+BLECharacteristic *bslc2 = NULL;
 
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
@@ -40,6 +40,12 @@ void setup()
     while ( !Serial ) {
         delay (10);    // for nrf52840 with native usb
     }
+
+    hrmc1 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+    bslc1 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+
+    hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+    bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
 
     /* Intializes random number generator */
     /*Set random number generator*/
@@ -99,7 +105,7 @@ void startAdv (void)
     Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
 }
 
-void setupHRM (BLECharacteristic &hrmc, BLECharacteristic &bslc, char *name)
+void setupHRM (BLECharacteristic *hrmc, BLECharacteristic *bslc, char *name)
 {
     // Configure the Heart Rate Monitor service
     // See: https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.service.heart_rate.xml
@@ -129,14 +135,14 @@ void setupHRM (BLECharacteristic &hrmc, BLECharacteristic &bslc, char *name)
     //    B2:3    = UINT16 - 16-bit heart rate measurement value in BPM
     //    B4:5    = UINT16 - Energy expended in joules
     //    B6:7    = UINT16 - RR Internal (1/1024 second resolution)
-    hrmc.setProperties (CHR_PROPS_NOTIFY);
-    hrmc.setPermission (SECMODE_OPEN, SECMODE_NO_ACCESS);
-    hrmc.setFixedLen (2);
-    hrmc.setCccdWriteCallback (cccd_callback); // Optionally capture CCCD updates
-    hrmc.setUserDescriptor (name); // aka user descriptor
-    hrmc.begin();
+    hrmc->setProperties (CHR_PROPS_NOTIFY);
+    hrmc->setPermission (SECMODE_OPEN, SECMODE_NO_ACCESS);
+    hrmc->setFixedLen (2);
+    hrmc->setCccdWriteCallback (cccd_callback); // Optionally capture CCCD updates
+    hrmc->setUserDescriptor (name); // aka user descriptor
+    hrmc->begin();
     uint8_t hrmdata[2] = { 0b00000110, 0x40 }; // Set the characteristic to use 8-bit values, with the sensor connected and detected
-    hrmc.write (hrmdata, 2);
+    hrmc->write (hrmdata, 2);
     // Configure the Body Sensor Location characteristic
     // See: https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.body_sensor_location.xml
     // Properties = Read
@@ -151,12 +157,12 @@ void setupHRM (BLECharacteristic &hrmc, BLECharacteristic &bslc, char *name)
     //      5     = Ear Lobe
     //      6     = Foot
     //      7:255 = Reserved
-    bslc.setProperties (CHR_PROPS_READ);
-    bslc.setPermission (SECMODE_OPEN, SECMODE_NO_ACCESS);
-    bslc.setFixedLen (1);
-    bslc.setUserDescriptor (name); // aka user descriptor
-    bslc.begin();
-    bslc.write8 (2);   // Set the characteristic to 'Wrist' (2)
+    bslc->setProperties (CHR_PROPS_READ);
+    bslc->setPermission (SECMODE_OPEN, SECMODE_NO_ACCESS);
+    bslc->setFixedLen (1);
+    bslc->setUserDescriptor (name); // aka user descriptor
+    bslc->begin();
+    bslc->write8 (2);   // Set the characteristic to 'Wrist' (2)
 }
 
 void connect_callback (uint16_t conn_handle)
@@ -196,17 +202,17 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
     Serial.print (" : ");
     Serial.print (chr->getCccd(conn_hdl));
     Serial.print (" : ");
-    Serial.print (hrmc1.getCccd(conn_hdl));
+    Serial.print (hrmc1->getCccd(conn_hdl));
     Serial.print (" : ");
-    Serial.print (hrmc2.getCccd(conn_hdl));
+    Serial.print (hrmc2->getCccd(conn_hdl));
     Serial.print (", UUID value: ");
     (void) chr->uuid.get (&_uuid);
     Serial.println (_uuid);
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if ( (chr->uuid == hrmc1.uuid) && (cccd_value == hrmc1.getCccd(conn_hdl)) ) {
-        if (hrmc1.notifyEnabled (conn_hdl) ) {
+    if ( (chr->uuid == hrmc1->uuid) && (cccd_value == hrmc1->getCccd(conn_hdl)) ) {
+        if (hrmc1->notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #1 'Notify' enabled");
         }
 
@@ -217,8 +223,8 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
 
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
-    if ( (chr->uuid == hrmc2.uuid) && (cccd_value == hrmc2.getCccd(conn_hdl)) ) {
-        if (hrmc2.notifyEnabled (conn_hdl) ) {
+    if ( (chr->uuid == hrmc2->uuid) && (cccd_value == hrmc2->getCccd(conn_hdl)) ) {
+        if (hrmc2->notifyEnabled (conn_hdl) ) {
             Serial.println ("Heart Rate Measurement #2 'Notify' enabled");
         }
 
@@ -243,7 +249,7 @@ void loop()
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
             // The characteristic's value is still updated although notification is not sent
-            if ( hrmc1.notify (hrmdata, sizeof (hrmdata) ) ) {
+            if ( hrmc1->notify (hrmdata, sizeof (hrmdata) ) ) {
                 Serial.print ("Heart Rate 1 Measurement updated to: ");
                 Serial.println (bps);
                 hrm1_not_connected_announced = false;
@@ -261,7 +267,7 @@ void loop()
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
             // The characteristic's value is still updated although notification is not sent
-            if ( hrmc2.notify (hrmdata, sizeof (hrmdata) ) ) {
+            if ( hrmc2->notify (hrmdata, sizeof (hrmdata) ) ) {
                 Serial.print ("Heart Rate 2 Measurement updated to: ");
                 Serial.println (bps);
                 hrm2_not_connected_announced = false;
