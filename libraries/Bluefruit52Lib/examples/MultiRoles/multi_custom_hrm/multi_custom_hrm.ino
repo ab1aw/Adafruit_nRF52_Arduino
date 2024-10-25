@@ -71,12 +71,12 @@ void setup()
     Serial.println ("Configuring the Heart Rate Monitor Service #1");
     hrmc1 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
     bslc1 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-    setupHRM (hrmc1, bslc1, (char *) "Unit 1");
-#if 0
+    setupHRM (hrmc1, bslc1, (char *) "Unit 1", 2);
+#if 1
     Serial.println ("Configuring the Heart Rate Monitor Service #2");
     hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
     bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-    setupHRM (hrmc2, bslc2, (char *) "Unit 2");
+    setupHRM (hrmc2, bslc2, (char *) "Unit 2", 3);
 #endif
 
     // Setup the advertising packet(s)
@@ -110,7 +110,7 @@ void startAdv (void)
     Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
 }
 
-void setupHRM (BLECharacteristic *hrmc, BLECharacteristic *bslc, char *name)
+void setupHRM (BLECharacteristic *hrmc, BLECharacteristic *bslc, char *name, uint8_t location)
 {
     // Configure the Heart Rate Monitor service
     // See: https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.service.heart_rate.xml
@@ -167,17 +167,19 @@ void setupHRM (BLECharacteristic *hrmc, BLECharacteristic *bslc, char *name)
     bslc->setFixedLen (1);
     bslc->setUserDescriptor (name); // aka user descriptor
     bslc->begin();
-    bslc->write8 (2);   // Set the characteristic to 'Wrist' (2)
+    bslc->write8 (location);
 }
 
 void connect_callback (uint16_t conn_handle)
 {
     // Get the reference to current connection
     BLEConnection *connection = Bluefruit.Connection (conn_handle);
+
     char central_name[32] = { 0 };
+    ble_gap_addr_t peerAddr = connection->getPeerAddr();
+
     connection->getPeerName (central_name, sizeof (central_name) );
-    Serial.print ("Connected to ");
-    Serial.println (central_name);
+    Serial.printf ("Connected to %s %02X:%02X:%02X:%02X:%02X:%02X\n", central_name, peerAddr.addr[5], peerAddr.addr[4], peerAddr.addr[3], peerAddr.addr[2], peerAddr.addr[1], peerAddr.addr[0]);
 }
 
 /**
@@ -253,7 +255,7 @@ void loop()
     if ( Bluefruit.connected() ) {
         if ( hrmc1 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-            bps = (uint8_t) (72 + random (-3, 3) );
+            bps = (uint8_t) (73 + random (-3, 3) );
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
@@ -268,7 +270,7 @@ void loop()
                     Serial.println ("Configuring the Heart Rate Monitor Service #2");
                     hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
                     bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-                    setupHRM (hrmc2, bslc2, (char *) "Unit 2");
+                    setupHRM (hrmc2, bslc2, (char *) "Unit 2", 4);
                     // Don't need this to make new service characteristic discoverable by central device.
                     //   Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
                 }
@@ -285,7 +287,7 @@ void loop()
 
         if ( hrmc2 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-            bps = (uint8_t) (62 + random (-3, 3) );
+            bps = (uint8_t) (63 + random (-3, 3) );
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
