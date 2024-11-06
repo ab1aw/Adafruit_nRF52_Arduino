@@ -26,6 +26,9 @@ BLECharacteristic *bslc1 = NULL;
 BLECharacteristic *hrmc2 = NULL;
 BLECharacteristic *bslc2 = NULL;
 
+BLECharacteristic *hrmc3 = NULL;
+BLECharacteristic *bslc3 = NULL;
+
 BLEDis bledis;    // DIS (Device Information Service) helper class instance
 BLEBas blebas;    // BAS (Battery Service) helper class instance
 
@@ -275,6 +278,7 @@ void loop()
 
     static bool hrm1_not_connected_announced = false;
     static bool hrm2_not_connected_announced = false;
+    static bool hrm3_not_connected_announced = false;
 
     digitalToggle (LED_RED);
 
@@ -321,16 +325,35 @@ void loop()
             }
         }
 
-#if 0
-        if ( (hrmc2 == NULL) && (--count == 0) ) {
-            Serial.println ("Configuring the Heart Rate Monitor Service #2");
-            hrmc2 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-            bslc2 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-            setupHRM (hrmc2, bslc2, (char *) "Unit 2", 4);
+        if ( hrmc3 == NULL ) {
+            Serial.println ("Configuring the Heart Rate Monitor Service #3");
+            hrmc3 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+            bslc3 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+            setupHRM (hrmc3, bslc3, (char *) "Unit 3", 4);
             // Don't need this to make new service characteristic discoverable by central device.
             //   Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
         }
-#endif
+        else {
+            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
+            bps = (uint8_t) (53 + random (-3, 3) );
+
+            int i = random (0, 4);
+            hrmc3->setUserDescriptor(names[i]);
+
+            // Note: We use .notify instead of .write!
+            // If it is connected but CCCD is not enabled
+            // The characteristic's value is still updated although notification is not sent
+            if ( hrmc3->notify (hrmdata, sizeof (hrmdata) ) ) {
+                Serial.printf ("Heart Rate 3 Measurement updated to: %d, count %d, %s\n", bps, count, names[i]);
+                hrm3_not_connected_announced = false;
+            }
+
+            else if ( hrm3_not_connected_announced == false ) {
+                Serial.printf ("ERROR: HRM 3 notify not set in the CCCD or not connected! count = %d\n", count);
+                hrm3_not_connected_announced = true;
+            }
+        }
+
 #if 0
         if ( count-- == 0 ) {
             delete bslc2;
