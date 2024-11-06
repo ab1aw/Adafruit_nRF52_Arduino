@@ -282,8 +282,8 @@ void loop()
 
     if ( Bluefruit.connected() ) {
         if ( hrmc1 != NULL ) {
-            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
             bps = (uint8_t) (53 + random (-3, 3) );
+            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
@@ -300,8 +300,8 @@ void loop()
         }
 
         if ( hrmc2 != NULL ) {
-            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
             bps = (uint8_t) (63 + random (-3, 3) );
+            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
@@ -318,8 +318,8 @@ void loop()
         }
 
         if ( hrmc3 != NULL ) {
-            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
             bps = (uint8_t) (73 + random (-3, 3) );
+            uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
