@@ -234,6 +234,15 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
     Serial.println (_uuid);
 #endif
 
+    if (chr->notifyEnabled (conn_hdl) ) {
+        Serial.println ("Heart Rate Measurement 'Notify' enabled");
+    }
+
+    else {
+        Serial.println ("Heart Rate Measurement 'Notify' disabled");
+    }
+
+#if 0
     // Check the characteristic this CCCD update is associated with in case
     // this handler is used for multiple CCCD records.
     if ( (hrmc1 != NULL) && (chr->uuid == hrmc1->uuid) && (cccd_value == hrmc1->getCccd(conn_hdl)) ) {
@@ -257,6 +266,7 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
             Serial.println ("Heart Rate Measurement #2 'Notify' disabled");
         }
     }
+#endif
 }
 
 void loop()
