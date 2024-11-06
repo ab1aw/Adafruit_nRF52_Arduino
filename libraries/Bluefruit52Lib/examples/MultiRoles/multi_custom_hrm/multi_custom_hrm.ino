@@ -35,8 +35,6 @@ BLEBas blebas;    // BAS (Battery Service) helper class instance
 // Initial value: heart rate beats per second.
 uint8_t  bps = 72;
 
-static char *names[4] = {"George", "Martha", "Fred", "Ethel"};
-
 void setup()
 {
     Serial.begin (115200);
@@ -274,7 +272,7 @@ void cccd_callback (uint16_t conn_hdl, BLECharacteristic *chr, uint16_t cccd_val
 
 void loop()
 {
-    static int count = 30;
+    static int count = 0;
 
     static bool hrm1_not_connected_announced = false;
     static bool hrm2_not_connected_announced = false;
@@ -285,16 +283,13 @@ void loop()
     if ( Bluefruit.connected() ) {
         if ( hrmc1 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-            bps = (uint8_t) (73 + random (-3, 3) );
-
-            int i = random (0, 4);
-            hrmc1->setUserDescriptor(names[i]);
+            bps = (uint8_t) (53 + random (-3, 3) );
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
             // The characteristic's value is still updated although notification is not sent
             if ( hrmc1->notify (hrmdata, sizeof (hrmdata) ) ) {
-                Serial.printf ("Heart Rate 1 Measurement updated to: %d, count %d, %s\n", bps, count, names[i]);
+                Serial.printf ("Heart Rate 1 Measurement updated to: %d, count %d\n", bps, count++);
                 hrm1_not_connected_announced = false;
             }
 
@@ -308,14 +303,11 @@ void loop()
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
             bps = (uint8_t) (63 + random (-3, 3) );
 
-            int i = random (0, 4);
-            hrmc2->setUserDescriptor(names[i]);
-
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
             // The characteristic's value is still updated although notification is not sent
             if ( hrmc2->notify (hrmdata, sizeof (hrmdata) ) ) {
-                Serial.printf ("Heart Rate 2 Measurement updated to: %d, count %d, %s\n", bps, count, names[i]);
+                Serial.printf ("Heart Rate 2 Measurement updated to: %d, count %d\n", bps, count++);
                 hrm2_not_connected_announced = false;
             }
 
@@ -325,26 +317,15 @@ void loop()
             }
         }
 
-        if ( hrmc3 == NULL ) {
-            Serial.println ("Configuring the Heart Rate Monitor Service #3");
-            hrmc3 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
-            bslc3 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
-            setupHRM (hrmc3, bslc3, (char *) "Unit 3", 4);
-            // Don't need this to make new service characteristic discoverable by central device.
-            //   Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
-        }
-        else {
+        if ( hrmc3 != NULL ) {
             uint8_t hrmdata[2] = { 0b00000110, bps };           // Sensor connected, modify BPS value
-            bps = (uint8_t) (53 + random (-3, 3) );
-
-            int i = random (0, 4);
-            hrmc3->setUserDescriptor(names[i]);
+            bps = (uint8_t) (73 + random (-3, 3) );
 
             // Note: We use .notify instead of .write!
             // If it is connected but CCCD is not enabled
             // The characteristic's value is still updated although notification is not sent
             if ( hrmc3->notify (hrmdata, sizeof (hrmdata) ) ) {
-                Serial.printf ("Heart Rate 3 Measurement updated to: %d, count %d, %s\n", bps, count, names[i]);
+                Serial.printf ("Heart Rate 3 Measurement updated to: %d, count %d\n", bps, count++);
                 hrm3_not_connected_announced = false;
             }
 
@@ -352,6 +333,14 @@ void loop()
                 Serial.printf ("ERROR: HRM 3 notify not set in the CCCD or not connected! count = %d\n", count);
                 hrm3_not_connected_announced = true;
             }
+        }
+        else if ( count > 30 ) {
+            Serial.println ("Configuring the Heart Rate Monitor Service #3");
+            hrmc3 = new BLECharacteristic (UUID16_CHR_HEART_RATE_MEASUREMENT);
+            bslc3 = new BLECharacteristic (UUID16_CHR_BODY_SENSOR_LOCATION);
+            setupHRM (hrmc3, bslc3, (char *) "Unit 3", 4);
+            // Don't need this to make new service characteristic discoverable by central device.
+            //   Bluefruit.Advertising.start (0);               // 0 = Don't stop advertising after n seconds
         }
 
 #if 0
